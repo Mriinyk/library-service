@@ -17,9 +17,26 @@ Including another URLconf
 
 from django.contrib import admin
 from django.urls import include, path
+from rest_framework.decorators import api_view, permission_classes
+from rest_framework.permissions import AllowAny
+from rest_framework.response import Response
+from rest_framework.reverse import reverse
+
+
+@api_view(["GET"])
+@permission_classes([AllowAny])
+def api_root(request):
+    return Response(
+        {
+            "books": reverse("library:book-list", request=request),
+            "borrowings": reverse("borrowings:borrowing-list", request=request),
+        }
+    )
 
 urlpatterns = [
     path("admin/", admin.site.urls),
+    path("api/", api_root, name="api-root"),
+    path("api/", include("borrowings.urls")),
     path("api/", include("library.urls")),
     path("api/users/", include("users.urls")),
 ]
