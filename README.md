@@ -30,14 +30,22 @@ until that payment is paid.
 
 ## Payments API
 
-The read-only Payments API is available to authenticated users at
-`/api/payments/`:
+Authenticated users can list and retrieve payments at `/api/payments/`:
 
 - `GET /api/payments/` lists payments.
 - `GET /api/payments/<id>/` returns payment details.
+- `POST /api/payments/<id>/renew/` creates a new Stripe Checkout Session for an
+  expired payment and returns it to `PENDING`.
+- `GET /api/payments/success/?session_id=...` verifies the session with Stripe
+  and marks the payment `PAID` only after Stripe confirms it.
+- `GET /api/payments/cancel/` returns a paused-payment message.
 
 Non-staff users see only payments associated with their borrowings; staff users
-can see all payments. Payment records include `status` (`PENDING` or `PAID`),
-`type` (`PAYMENT` or `FINE`), `borrowing` (ID), Stripe session URL and ID, and
-`money_to_pay` in USD. Creating payments and Stripe checkout flows are not part
-of this read-only API stage.
+can see all payments. Payment records include `status` (`PENDING`, `PAID`, or
+`EXPIRED`), `type` (`PAYMENT` or `FINE`), `borrowing` (ID), Stripe session URL
+and ID, and `money_to_pay` in USD. Set `STRIPE_SECRET_KEY` in the environment
+before using Stripe endpoints or the expiration command.
+
+Run `python manage.py check_expired_payment_sessions` from an external
+scheduler every minute to mark expired Stripe sessions. The command does not
+start a background scheduler inside Django.
