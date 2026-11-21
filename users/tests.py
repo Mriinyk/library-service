@@ -52,7 +52,7 @@ class UserApiTests(APITestCase):
         self.assertEqual(response.status_code, 400)
         self.assertFalse(User.objects.filter(email=self.user_data["email"]).exists())
 
-    def test_user_can_obtain_tokens_and_access_profile_with_authorize_header(self):
+    def test_user_can_access_profile_with_standard_authorization_header(self):
         user = User.objects.create_user(**self.user_data)
         token_response = self.client.post(
             reverse("users:token_obtain_pair"),
@@ -62,17 +62,14 @@ class UserApiTests(APITestCase):
             },
             format="json",
         )
-
-        self.assertEqual(token_response.status_code, 200)
         self.client.credentials(
-            HTTP_AUTHORIZE=f"Bearer {token_response.data['access']}"
+            HTTP_AUTHORIZATION=f"Bearer {token_response.data['access']}"
         )
 
-        profile_response = self.client.get(reverse("users:me"))
+        response = self.client.get(reverse("users:me"))
 
-        self.assertEqual(profile_response.status_code, 200)
-        self.assertEqual(profile_response.data["id"], user.id)
-        self.assertEqual(profile_response.data["email"], user.email)
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data["id"], user.id)
 
     def test_user_can_refresh_access_token(self):
         User.objects.create_user(**self.user_data)

@@ -74,7 +74,11 @@ class PaymentApiTests(APITestCase):
         )
 
         self.assertEqual(list_response.status_code, 200)
-        self.assertEqual([item["id"] for item in list_response.data], [self.payment.id])
+        self.assertEqual(list_response.data["count"], 1)
+        self.assertEqual(
+            [item["id"] for item in list_response.data["results"]],
+            [self.payment.id],
+        )
         self.assertEqual(detail_response.status_code, 200)
         self.assertEqual(detail_response.data["borrowing"], self.borrowing.id)
         self.assertEqual(detail_response.data["money_to_pay"], "21.00")
@@ -91,7 +95,7 @@ class PaymentApiTests(APITestCase):
         response = self.client.get(self.list_url)
 
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(len(response.data), 2)
+        self.assertEqual(response.data["count"], 2)
 
     def test_payment_endpoints_are_read_only(self):
         self.client.force_authenticate(user=self.user)

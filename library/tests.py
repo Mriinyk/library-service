@@ -25,10 +25,33 @@ class BookApiTests(APITestCase):
         detail_response = self.client.get(self.detail_url)
 
         self.assertEqual(list_response.status_code, 200)
-        self.assertEqual(len(list_response.data), 1)
+        self.assertEqual(list_response.data["count"], 1)
+        self.assertEqual(len(list_response.data["results"]), 1)
         self.assertEqual(detail_response.status_code, 200)
         self.assertEqual(detail_response.data["title"], self.book.title)
         self.assertEqual(detail_response.data["daily_fee"], "1.50")
+
+    def test_book_list_is_paginated(self):
+        Book.objects.bulk_create(
+            [
+                Book(
+                    title=f"Book {index}",
+                    author="Author",
+                    cover=Book.CoverType.SOFT,
+                    inventory=1,
+                    daily_fee="1.00",
+                )
+                for index in range(10)
+            ]
+        )
+
+        first_page = self.client.get(self.list_url)
+        second_page = self.client.get(self.list_url, {"page": 2})
+
+        self.assertEqual(first_page.data["count"], 11)
+        self.assertEqual(len(first_page.data["results"]), 10)
+        self.assertIsNotNone(first_page.data["next"])
+        self.assertEqual(len(second_page.data["results"]), 1)
 
     def test_anonymous_users_cannot_modify_books(self):
         response = self.client.post(
@@ -101,3 +124,24 @@ class BookApiTests(APITestCase):
                 format="json",
             )
             self.assertEqual(response.status_code, 400, invalid_data)
+
+    def test_daily_fee_supports_precision_matching_payment_amounts(self):
+        staff_user = User.objects.create_user(
+            email="librarian@example.com",
+            password="Strong-password-123!",
+            is_staff=True,
+        )
+        self.client.force_authenticate(user=staff_user)
+
+        response = self.client.post(
+            self.list_url,
+            {
+                **self.book_data,
+                "title": "High-value book",
+                "daily_fee": "99999999.99",
+            },
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, 201)
+        self.assertEqual(response.data["daily_fee"], "99999999.99")

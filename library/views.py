@@ -1,3 +1,4 @@
+from drf_spectacular.utils import extend_schema
 from rest_framework import viewsets
 
 from library.models import Book
@@ -5,6 +6,7 @@ from library.serializers import BookSerializer
 from library.permissions import ReadOnlyOrAdminPermission
 
 
+@extend_schema(tags=["Books"])
 class BookViewSet(viewsets.ModelViewSet):
     queryset = Book.objects.all()
     serializer_class = BookSerializer

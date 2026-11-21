@@ -2,7 +2,9 @@
 
 Library Service is a Django REST Framework API for managing customers, books,
 and book borrowings. It also exposes read-only payment records. The API root
-and browsable API are available at `/api/`; the Django admin is at `/admin/`.
+and browsable API are available at `/api/`; interactive Swagger and ReDoc
+documentation are available at `/api/docs/` and `/api/redoc/`. The OpenAPI
+schema is available at `/api/schema/`; the Django admin is at `/admin/`.
 
 ## Features
 
@@ -61,6 +63,9 @@ The environment variables are:
 `.env` is ignored by Git and must not be committed. Django fails during startup
 if `DJANGO_SECRET_KEY` is missing.
 
+Emails use Django's console mailer in development; messages are written to the
+server console instead of being sent through SMTP.
+
 Apply migrations and start the development server:
 
 ```powershell
@@ -109,11 +114,11 @@ The token response contains both tokens:
 }
 ```
 
-For protected endpoints, send the access token using the custom `Authorize`
-header (not `Authorization`):
+For protected endpoints, send the access token using the standard
+`Authorization` header:
 
 ```http
-Authorize: Bearer <access-token>
+Authorization: Bearer <access-token>
 ```
 
 Refresh an access token with `POST /api/users/token/refresh/` and a JSON body
@@ -153,7 +158,7 @@ Book fields:
 | `author` | String, required |
 | `cover` | `HARD` or `SOFT` |
 | `inventory` | Non-negative integer; zero means out of stock |
-| `daily_fee` | USD decimal with two decimal places; minimum `0.01` |
+| `daily_fee` | USD decimal with two decimal places; minimum `0.01`, maximum `99999999.99` |
 
 Staff means a user with `is_staff=True`. All read requests, including detail
 requests, are public.
@@ -228,12 +233,19 @@ payments. Payment fields are:
 | `borrowing` | Borrowing ID |
 | `session_url` | URL |
 | `session_id` | String |
-| `money_to_pay` | Positive USD decimal with two decimal places |
+| `money_to_pay` | Positive USD decimal with two decimal places; maximum `99999999.99` |
+
+Book daily fees and payment totals use the same `Decimal(10, 2)` precision in
+USD.
 
 Payment creation and Stripe checkout processing are not part of the selected
 required scope.
 
 ## Common responses
+
+List endpoints for books, borrowings, and payments use page-number pagination.
+Responses contain `count`, `next`, `previous`, and `results`; request another
+page with `?page=2`. The default page size is 10.
 
 - `400 Bad Request`: invalid input, invalid query parameters, unavailable book
   inventory, or an invalid borrowing date.

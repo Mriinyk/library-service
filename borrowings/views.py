@@ -1,6 +1,7 @@
 from django.db import transaction
 from django.db.models import F
 from django.utils import timezone
+from drf_spectacular.utils import OpenApiParameter, extend_schema
 from rest_framework import mixins, serializers, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticated
@@ -11,12 +12,14 @@ from borrowings.serializers import BorrowingCreateSerializer, BorrowingReadSeria
 from library.models import Book
 
 
+@extend_schema(tags=["Borrowings"])
 class BorrowingViewSet(
     mixins.CreateModelMixin,
     mixins.ListModelMixin,
     mixins.RetrieveModelMixin,
     viewsets.GenericViewSet,
 ):
+    queryset = Borrowing.objects.all()
     permission_classes = (IsAuthenticated,)
 
     def get_queryset(self):
@@ -61,6 +64,31 @@ class BorrowingViewSet(
             return BorrowingCreateSerializer
         return BorrowingReadSerializer
 
+    @extend_schema(
+        tags=["Borrowings"],
+        parameters=[
+            OpenApiParameter(
+                "is_active",
+                bool,
+                OpenApiParameter.QUERY,
+                description="Filter by return status.",
+            ),
+            OpenApiParameter(
+                "user_id",
+                int,
+                OpenApiParameter.QUERY,
+                description="Staff-only filter for a customer's borrowings.",
+            ),
+        ],
+    )
+    def list(self, request, *args, **kwargs):
+        return super().list(request, *args, **kwargs)
+
+    @extend_schema(
+        tags=["Borrowings"],
+        request=BorrowingCreateSerializer,
+        responses={201: BorrowingReadSerializer},
+    )
     def create(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
@@ -75,6 +103,11 @@ class BorrowingViewSet(
             headers=self.get_success_headers(serializer.data),
         )
 
+    @extend_schema(
+        tags=["Borrowings"],
+        request=None,
+        responses=BorrowingReadSerializer,
+    )
     @action(detail=True, methods=("post",), url_path="return")
     def return_book(self, request, *args, **kwargs):
         borrowing = self.get_object()

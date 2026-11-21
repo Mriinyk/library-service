@@ -1,6 +1,6 @@
 from django.db import transaction
 from django.db.models import F
-from django.utils import timezone
+from django.core.exceptions import ValidationError as DjangoValidationError
 from rest_framework import serializers
 
 from borrowings.models import Borrowing
@@ -33,10 +33,10 @@ class BorrowingCreateSerializer(serializers.ModelSerializer):
         fields = ("book", "expected_return_date")
 
     def validate_expected_return_date(self, value):
-        if value <= timezone.localdate():
-            raise serializers.ValidationError(
-                "Expected return date must be after the borrowing date."
-            )
+        try:
+            Borrowing(expected_return_date=value).clean()
+        except DjangoValidationError as exc:
+            raise serializers.ValidationError(exc.message_dict) from exc
         return value
 
     def create(self, validated_data):

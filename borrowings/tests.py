@@ -1,4 +1,5 @@
 from datetime import timedelta
+from unittest.mock import patch
 
 from django.contrib.auth import get_user_model
 from django.urls import reverse
@@ -38,6 +39,47 @@ class BorrowingApiTests(APITestCase):
         self.assertIn("books", response.data)
         self.assertIn("borrowings", response.data)
         self.assertIn("payments", response.data)
+        self.assertIn("users", response.data)
+
+    def test_api_schema_and_interactive_docs_are_available(self):
+        schema_response = self.client.get("/api/schema/?format=json")
+        swagger_response = self.client.get("/api/docs/")
+        redoc_response = self.client.get("/api/redoc/")
+
+        self.assertEqual(schema_response.status_code, 200)
+        self.assertIn("/api/users/", schema_response.data["paths"])
+        self.assertIn("/api/books/", schema_response.data["paths"])
+        self.assertIn(
+            "Users",
+            schema_response.data["paths"]["/api/users/"]["post"]["tags"],
+        )
+        self.assertIn(
+            "Books",
+            schema_response.data["paths"]["/api/books/"]["get"]["tags"],
+        )
+        self.assertIn(
+            "Borrowings",
+            schema_response.data["paths"]["/api/borrowings/"]["get"]["tags"],
+        )
+        self.assertIn(
+            "Payments",
+            schema_response.data["paths"]["/api/payments/"]["get"]["tags"],
+        )
+        borrowing_schema = schema_response.data["paths"]["/api/borrowings/"]
+        create_response = borrowing_schema["post"]["responses"]["201"]["content"][
+            "application/json"
+        ]["schema"]
+        self.assertEqual(
+            create_response["$ref"],
+            "#/components/schemas/BorrowingRead",
+        )
+        query_parameters = {
+            parameter["name"]
+            for parameter in borrowing_schema["get"]["parameters"]
+        }
+        self.assertTrue({"is_active", "user_id", "page"}.issubset(query_parameters))
+        self.assertEqual(swagger_response.status_code, 200)
+        self.assertEqual(redoc_response.status_code, 200)
 
     def test_borrowings_require_authentication(self):
         response = self.client.get(self.list_url)
@@ -99,7 +141,39 @@ class BorrowingApiTests(APITestCase):
         response = self.client.get(f"{self.list_url}?is_active=true")
 
         self.assertEqual(response.status_code, 200)
-        self.assertEqual([item["id"] for item in response.data], [active.id])
+        self.assertEqual(
+            [item["id"] for item in response.data["results"]],
+            [active.id],
+        )
+
+    def test_borrowing_list_is_paginated(self):
+        Borrowing.objects.create(
+            book=self.book,
+            user=self.user,
+            expected_return_date=self.expected_return_date,
+        )
+        for index in range(10):
+            user = User.objects.create_user(
+                email=f"reader{index}@example.com",
+                password="Strong-password-123!",
+            )
+            Borrowing.objects.create(
+                book=self.book,
+                user=user,
+                expected_return_date=self.expected_return_date,
+            )
+        staff_user = User.objects.create_user(
+            email="librarian@example.com",
+            password="Strong-password-123!",
+            is_staff=True,
+        )
+        self.client.force_authenticate(user=staff_user)
+
+        response = self.client.get(self.list_url)
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data["count"], 11)
+        self.assertEqual(len(response.data["results"]), 10)
 
     def test_staff_can_filter_borrowings_by_user_id(self):
         staff_user = User.objects.create_user(
@@ -121,7 +195,10 @@ class BorrowingApiTests(APITestCase):
         response = self.client.get(f"{self.list_url}?user_id={other_user.id}")
 
         self.assertEqual(response.status_code, 200)
-        self.assertEqual([item["id"] for item in response.data], [target.id])
+        self.assertEqual(
+            [item["id"] for item in response.data["results"]],
+            [target.id],
+        )
 
     def test_return_increments_inventory_and_cannot_be_repeated(self):
         self.client.force_authenticate(user=self.user)
@@ -158,5 +235,26 @@ class BorrowingApiTests(APITestCase):
             },
             format="json",
         )
+
+        self.assertEqual(response.status_code, 400)
+
+    def test_expected_return_date_uses_the_model_borrow_date_rule(self):
+        expected_return_date = timezone.localdate() + timedelta(days=2)
+        borrow_date = timezone.localdate() + timedelta(days=3)
+        self.client.force_authenticate(user=self.user)
+
+        with patch.object(
+            Borrowing._meta.get_field("borrow_date"),
+            "_get_default",
+            return_value=borrow_date,
+        ):
+            response = self.client.post(
+                self.list_url,
+                {
+                    "book": self.book.id,
+                    "expected_return_date": expected_return_date.isoformat(),
+                },
+                format="json",
+            )
 
         self.assertEqual(response.status_code, 400)

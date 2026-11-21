@@ -49,6 +49,7 @@ INSTALLED_APPS = [
     "django.contrib.messages",
     "django.contrib.staticfiles",
     "rest_framework",
+    "drf_spectacular",
     "library",
     "users",
     "borrowings",
@@ -136,7 +137,7 @@ STATIC_URL = "static/"
 # Email
 # https://docs.djangoproject.com/en/6.1/topics/email/#topic-email-configuration
 
-EMAIL = {
+MAILERS = {
     "default": {
         "BACKEND": "django.core.mail.backends.console.EmailBackend",
     },
@@ -145,6 +146,7 @@ EMAIL = {
 AUTH_USER_MODEL = "users.User"
 
 REST_FRAMEWORK = {
+    "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
     "DEFAULT_AUTHENTICATION_CLASSES": [
         "rest_framework_simplejwt.authentication.JWTAuthentication",
         "rest_framework.authentication.SessionAuthentication",
@@ -152,8 +154,22 @@ REST_FRAMEWORK = {
     "DEFAULT_PERMISSION_CLASSES": [
         "rest_framework.permissions.IsAuthenticated",
     ],
+    "DEFAULT_PAGINATION_CLASS": "rest_framework.pagination.PageNumberPagination",
+    "PAGE_SIZE": 10,
 }
 
-SIMPLE_JWT = {
-    "AUTH_HEADER_NAME": "HTTP_AUTHORIZE",
+SPECTACULAR_SETTINGS = {
+    "TITLE": "Library Service API",
+    "DESCRIPTION": (
+        "API for user registration, book inventory, borrowings, and "
+        "read-only payment records."
+    ),
+    "VERSION": "1.0.0",
+    "SERVE_INCLUDE_SCHEMA": False,
+    "TAGS": [
+        {"name": "Users", "description": "Registration, authentication, and profiles."},
+        {"name": "Books", "description": "Public catalog and staff-only inventory management."},
+        {"name": "Borrowings", "description": "Borrowing creation, filtering, and returns."},
+        {"name": "Payments", "description": "Read-only payment records."},
+    ],
 }
