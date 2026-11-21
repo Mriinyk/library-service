@@ -25,7 +25,8 @@ Borrowings are available to authenticated users at `/api/borrowings/`:
 - `POST /api/borrowings/<id>/return/` returns a book and restores inventory.
 
 Non-staff users can access only their own borrowings. A borrowing can be
-returned only once.
+returned only once. Users with a pending payment cannot create a new borrowing
+until that payment is paid.
 
 ## Payments API
 

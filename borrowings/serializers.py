@@ -6,6 +6,7 @@ from rest_framework import serializers
 from borrowings.models import Borrowing
 from library.models import Book
 from library.serializers import BookSerializer
+from payments.models import Payment
 
 
 class BorrowingReadSerializer(serializers.ModelSerializer):
@@ -41,6 +42,16 @@ class BorrowingCreateSerializer(serializers.ModelSerializer):
 
     def create(self, validated_data):
         with transaction.atomic():
+            user = validated_data["user"]
+            has_pending_payment = Payment.objects.filter(
+                borrowing__user=user,
+                status=Payment.Status.PENDING,
+            ).exists()
+            if has_pending_payment:
+                raise serializers.ValidationError(
+                    {"payment": "Pay all pending payments before borrowing a book."}
+                )
+
             book = validated_data["book"]
             inventory_updated = Book.objects.filter(
                 pk=book.pk,

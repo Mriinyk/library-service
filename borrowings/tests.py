@@ -7,6 +7,7 @@ from rest_framework.test import APITestCase
 
 from borrowings.models import Borrowing
 from library.models import Book
+from payments.models import Payment
 
 User = get_user_model()
 
@@ -72,6 +73,87 @@ class BorrowingApiTests(APITestCase):
 
         self.assertEqual(response.status_code, 400)
         self.assertEqual(Borrowing.objects.count(), 0)
+
+    def test_pending_payment_blocks_borrowing_without_changing_inventory(self):
+        existing_borrowing = Borrowing.objects.create(
+            book=self.book,
+            user=self.user,
+            expected_return_date=self.expected_return_date,
+        )
+        Payment.objects.create(
+            status=Payment.Status.PENDING,
+            type=Payment.PaymentType.PAYMENT,
+            borrowing=existing_borrowing,
+            session_url="https://checkout.stripe.com/c/pay_pending",
+            session_id="cs_pending",
+            money_to_pay="21.00",
+        )
+        self.client.force_authenticate(user=self.user)
+
+        response = self.client.post(
+            self.list_url,
+            self.borrowing_data,
+            format="json",
+        )
+
+        self.book.refresh_from_db()
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(Borrowing.objects.count(), 1)
+        self.assertEqual(self.book.inventory, 2)
+
+    def test_paid_payment_does_not_block_borrowing(self):
+        existing_borrowing = Borrowing.objects.create(
+            book=self.book,
+            user=self.user,
+            expected_return_date=self.expected_return_date,
+        )
+        Payment.objects.create(
+            status=Payment.Status.PAID,
+            type=Payment.PaymentType.PAYMENT,
+            borrowing=existing_borrowing,
+            session_url="https://checkout.stripe.com/c/pay_paid",
+            session_id="cs_paid",
+            money_to_pay="21.00",
+        )
+        self.client.force_authenticate(user=self.user)
+
+        response = self.client.post(
+            self.list_url,
+            self.borrowing_data,
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, 201)
+        self.book.refresh_from_db()
+        self.assertEqual(self.book.inventory, 1)
+
+    def test_another_users_pending_payment_does_not_block_borrowing(self):
+        other_user = User.objects.create_user(
+            email="other@example.com",
+            password="Strong-password-123!",
+        )
+        existing_borrowing = Borrowing.objects.create(
+            book=self.book,
+            user=other_user,
+            expected_return_date=self.expected_return_date,
+        )
+        Payment.objects.create(
+            status=Payment.Status.PENDING,
+            type=Payment.PaymentType.PAYMENT,
+            borrowing=existing_borrowing,
+            session_url="https://checkout.stripe.com/c/pay_other",
+            session_id="cs_other_pending",
+            money_to_pay="21.00",
+        )
+        self.client.force_authenticate(user=self.user)
+
+        response = self.client.post(
+            self.list_url,
+            self.borrowing_data,
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, 201)
 
     def test_user_sees_only_own_borrowings_and_can_filter_active(self):
         active = Borrowing.objects.create(
