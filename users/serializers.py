@@ -8,7 +8,7 @@ User = get_user_model()
 class UserSerializer(serializers.ModelSerializer):
     password = serializers.CharField(
         write_only=True,
-        required=True,
+        required=False,
     )
     is_staff = serializers.BooleanField(read_only=True)
 
@@ -20,6 +20,13 @@ class UserSerializer(serializers.ModelSerializer):
     def create(self, validated_data):
         password = validated_data.pop("password")
         return User.objects.create_user(password=password, **validated_data)
+
+    def validate(self, attrs):
+        if self.instance is None and "password" not in attrs:
+            raise serializers.ValidationError(
+                {"password": "This field is required."}
+            )
+        return attrs
 
     def validate_password(self, value):
         validate_password(value, user=self.instance)

@@ -17,8 +17,49 @@ Including another URLconf
 
 from django.contrib import admin
 from django.urls import include, path
+from drf_spectacular.views import (
+    SpectacularAPIView,
+    SpectacularRedocView,
+    SpectacularSwaggerView,
+)
+from drf_spectacular.utils import extend_schema
+from rest_framework.decorators import api_view, permission_classes
+from rest_framework.permissions import AllowAny
+from rest_framework.response import Response
+from rest_framework.reverse import reverse
+
+
+@extend_schema(exclude=True)
+@api_view(["GET"])
+@permission_classes([AllowAny])
+def api_root(request):
+    return Response(
+        {
+            "books": reverse("library:book-list", request=request),
+            "borrowings": reverse("borrowings:borrowing-list", request=request),
+            "payments": reverse("payments:payment-list", request=request),
+            "users": reverse("users:register", request=request),
+            "schema": reverse("schema", request=request),
+            "docs": reverse("swagger-ui", request=request),
+        }
+    )
 
 urlpatterns = [
     path("admin/", admin.site.urls),
+    path("api/schema/", SpectacularAPIView.as_view(), name="schema"),
+    path(
+        "api/docs/",
+        SpectacularSwaggerView.as_view(url_name="schema"),
+        name="swagger-ui",
+    ),
+    path(
+        "api/redoc/",
+        SpectacularRedocView.as_view(url_name="schema"),
+        name="redoc",
+    ),
+    path("api/", api_root, name="api-root"),
+    path("api/", include("borrowings.urls")),
+    path("api/", include("library.urls")),
+    path("api/", include("payments.urls")),
     path("api/users/", include("users.urls")),
 ]
