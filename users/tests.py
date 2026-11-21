@@ -38,6 +38,20 @@ class UserApiTests(APITestCase):
 
         self.assertEqual(response.status_code, 400)
 
+    def test_registration_requires_password(self):
+        response = self.client.post(
+            reverse("users:register"),
+            {
+                "email": self.user_data["email"],
+                "first_name": self.user_data["first_name"],
+                "last_name": self.user_data["last_name"],
+            },
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, 400)
+        self.assertFalse(User.objects.filter(email=self.user_data["email"]).exists())
+
     def test_user_can_obtain_tokens_and_access_profile_with_authorize_header(self):
         user = User.objects.create_user(**self.user_data)
         token_response = self.client.post(
@@ -95,3 +109,22 @@ class UserApiTests(APITestCase):
         self.assertEqual(user.first_name, "Updated")
         self.assertTrue(user.check_password("Different-password-456!"))
         self.assertNotIn("password", response.data)
+
+    def test_profile_put_does_not_require_password(self):
+        user = User.objects.create_user(**self.user_data)
+        self.client.force_authenticate(user=user)
+
+        response = self.client.put(
+            reverse("users:me"),
+            {
+                "email": self.user_data["email"],
+                "first_name": "Updated",
+                "last_name": self.user_data["last_name"],
+            },
+            format="json",
+        )
+
+        user.refresh_from_db()
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(user.first_name, "Updated")
+        self.assertTrue(user.check_password(self.user_data["password"]))
