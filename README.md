@@ -1,5 +1,12 @@
 # library-service
 
+## Local configuration
+
+Install dependencies, then copy `.env.example` to `.env` and replace
+`DJANGO_SECRET_KEY` with a private random value. `.env` is ignored by Git and
+must never be committed. `DJANGO_DEBUG` defaults to `False`; configure
+`DJANGO_ALLOWED_HOSTS` as a comma-separated list for the environment.
+
 ## Books API
 
 Books are available at `/api/books/`:
