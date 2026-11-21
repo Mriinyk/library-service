@@ -37,6 +37,7 @@ class BorrowingApiTests(APITestCase):
         self.assertEqual(response.status_code, 200)
         self.assertIn("books", response.data)
         self.assertIn("borrowings", response.data)
+        self.assertIn("payments", response.data)
 
     def test_borrowings_require_authentication(self):
         response = self.client.get(self.list_url)

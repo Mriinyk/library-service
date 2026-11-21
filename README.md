@@ -26,3 +26,17 @@ Borrowings are available to authenticated users at `/api/borrowings/`:
 
 Non-staff users can access only their own borrowings. A borrowing can be
 returned only once.
+
+## Payments API
+
+The read-only Payments API is available to authenticated users at
+`/api/payments/`:
+
+- `GET /api/payments/` lists payments.
+- `GET /api/payments/<id>/` returns payment details.
+
+Non-staff users see only payments associated with their borrowings; staff users
+can see all payments. Payment records include `status` (`PENDING` or `PAID`),
+`type` (`PAYMENT` or `FINE`), `borrowing` (ID), Stripe session URL and ID, and
+`money_to_pay` in USD. Creating payments and Stripe checkout flows are not part
+of this read-only API stage.

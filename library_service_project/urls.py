@@ -30,6 +30,7 @@ def api_root(request):
         {
             "books": reverse("library:book-list", request=request),
             "borrowings": reverse("borrowings:borrowing-list", request=request),
+            "payments": reverse("payments:payment-list", request=request),
         }
     )
 
@@ -38,5 +39,6 @@ urlpatterns = [
     path("api/", api_root, name="api-root"),
     path("api/", include("borrowings.urls")),
     path("api/", include("library.urls")),
+    path("api/", include("payments.urls")),
     path("api/users/", include("users.urls")),
 ]
